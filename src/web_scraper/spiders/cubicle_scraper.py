@@ -1,8 +1,34 @@
 import scrapy
 import json
+import re
+import numpy as np
 from scrapy.selector import Selector
 from urllib.parse import urlencode
 from web_scraper.items import ReviewItem
+
+
+CATEGORY_FILTER = ['2x2 Speed Cubes',
+                   '3x3 Speed Cubes',
+                   '4x4 Speed Cubes',
+                   '5x5 Speed Cubes',
+                   '6x6 Speed Cubes',
+                   '7x7 Speed Cubes',
+                   '8x8-21x21 Cubes',
+                   'Megaminx',
+                   'Pyraminx',
+                   'Square-1',
+                   'FTO',
+                   'Skewb',
+                   'Clock',
+                   'Cuboids',
+                   'Shape Mods',
+                   'Minx+',
+                   'Magic Panels',
+                   'Gear Cubes',
+                   'Picture Cubes',
+                   'Smart Cubes',
+                   'Mystery Puzzles']
+REGEX_FILTER = "|".join(map(re.escape, CATEGORY_FILTER))
 
 
 class CubicleScraperSpider(scrapy.Spider):
@@ -10,28 +36,53 @@ class CubicleScraperSpider(scrapy.Spider):
     start_urls = ["https://www.thecubicle.com/pages/collections/top-brands"]
 
     def parse(self, response):
-        product_div = response.css("div.shopify-section")
-        links = product_div.css("a::attr(href)").getall()[1:11]
-        for link in links:
-            yield scrapy.Request(url=response.urljoin(link), callback=self.parse_products)
+        brand_div = response.css("div.shopify-section")
+        brand_links = brand_div.css("a::attr(href)").getall()[1:21]
+
+        for brand_link in brand_links:
+            yield scrapy.Request(url=response.urljoin(brand_link), callback=self.parse_products,
+                                 errback=self.handle_error)
 
     def parse_products(self, response):
-        product_grid = response.css("div.product-card-grid")
-        product_links = product_grid.css("a::attr(href)").getall()
-        for link in product_links:
-            yield scrapy.Request(url=response.urljoin(link), callback=self.parse_widget)
+        product_cards = response.css("div[x-data='productCard']")
+        for product_card in product_cards:
+            review_number_raw = product_card.css("div::attr(data-number-of-reviews)").get(default="0")
+            try:
+                review_number = int(review_number_raw)
+            except ValueError:
+                review_number = 0
 
-    def parse_widget(self, response):
-        product_name = response.css("h1::text").get(default="").strip()
-        yield from self.parse_reviews(response, product_name, page=1)
-        widget_el = response.css("div.jdgm-review-widget, div.jdgm-widget")
-        product_id = widget_el.attrib.get("data-id")
-        if product_id:
-            yield self.pagination_request(product_name, product_id, page=2)
+            if review_number != 0:
+                product_link = product_card.css("a::attr(href)").get(default="")
+                if product_link is not None:
+                    yield scrapy.Request(url=response.urljoin(product_link), callback=self.parse_product,
+                                         errback=self.handle_error,  cb_kwargs={"review_number": review_number})
+
+        next_page = response.css("a[title*='Next']::attr(href)").get(default=None)
+        if next_page is not None:
+            yield scrapy.Request(url=response.urljoin(next_page), callback=self.parse_products,
+                                 errback=self.handle_error)
+
+    def parse_product(self, response, review_number):
+        categories = response.xpath('//table//*[text()="Type"]/following-sibling::*[1]//text()').getall()
+        categories = " ".join([item.strip() for item in categories if item.strip()])
+
+        is_puzzle = re.search(REGEX_FILTER, categories)
+        if is_puzzle is None:
+            return
+
         else:
-            self.logger.warning("Could not locate Judge.me product ID for pagination.")
+            pages = int(np.ceil(review_number / 10))
+            product_id = response.css("div.jdgm-review-widget::attr(data-id)").get(default="")
 
-    def pagination_request(self, product_name, product_id, page):
+            if product_id is not None:
+                for page in range(1, pages + 1):
+                    yield self.pagination_request(product_id=product_id, page=page)
+            else:
+                self.logger.warning("Could not locate Judge.me product ID for request.")
+                return
+
+    def pagination_request(self, product_id, page):
         params = {
             "url": "thecubicleus.myshopify.com",
             "shop_domain": "thecubicleus.myshopify.com",
@@ -42,17 +93,9 @@ class CubicleScraperSpider(scrapy.Spider):
         }
         url = f"https://api.judge.me/reviews/reviews_for_widget?{urlencode(params)}"
 
-        return scrapy.Request(
-            url=url,
-            callback=self.parse_judge_me,
-            cb_kwargs={
-                "product_name": product_name,
-                "product_id": product_id,
-                "page": page
-            }
-        )
+        return scrapy.Request(url=url, callback=self.parse_judge_me, errback=self.handle_error)
 
-    def parse_judge_me(self, response, product_name, product_id, page):
+    def parse_judge_me(self, response):
         try:
             data = json.loads(response.text)
         except json.JSONDecodeError:
@@ -62,24 +105,23 @@ class CubicleScraperSpider(scrapy.Spider):
         if not html_content:
             return
 
-        selector = Selector(text=html_content)
-        reviews = selector.css("div.jdgm-rev")
-
+        response = Selector(text=html_content)
+        reviews = response.css("div.jdgm-rev")
         if not reviews:
             return
 
-        yield from self.parse_reviews(selector, product_name, page=page)
-        yield self.pagination_request(product_name, product_id, page + 1)
+        yield from self.parse_reviews(reviews=reviews)
 
-    def parse_reviews(self, selector, product_name, page):
-        reviews = selector.css("div.jdgm-rev")
+    def parse_reviews(self, reviews):
         for review in reviews:
             review_item = ReviewItem()
-            body_text = " ".join(review.css("div.jdgm-rev__body *::text").getall()).strip()
-            title_text = review.css("div.jdgm-rev__title::text").get(default="").strip()
-            score_raw = review.css("div.jdgm-rev__rating::attr(data-score)").get(default="0")
+            product_name = review.attrib.get("data-product-title", "").strip()
+            body_paragraphs = review.css("div.jdgm-rev__body p::text").getall()
+            body_text = " ".join(p.strip() for p in body_paragraphs if p.strip()).strip()
+            title_text = review.css("b.jdgm-rev__title::text").get(default="").strip()
+            score_raw = review.css("span.jdgm-rev__rating::attr(data-score)").get(default="0")
             try:
-                score = int(float(score_raw))
+                score = int(score_raw)
             except ValueError:
                 score = 0
 
@@ -88,3 +130,6 @@ class CubicleScraperSpider(scrapy.Spider):
             review_item["review_text"] = body_text
             review_item["score"] = score
             yield review_item
+
+    def handle_error(self, failure):
+        self.logger.error(f"Request failed: {failure}")

@@ -5,47 +5,59 @@ from tqdm import tqdm
 from utils import save_checkpoint, EarlyStopper
 
 
-def train(model, device, learning_rate, num_epochs, early_epochs, train_loader, val_loader):
+def train_model(model, model_name, device, learning_rate, num_epochs,
+                early_epochs, train_loader, val_loader, callback=None):
     model = model.to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    loop = tqdm(train_loader)
     scaler = torch.amp.GradScaler(device=device)
-    early_stopper = EarlyStopper()
+    early_stopper = EarlyStopper(early_epochs)
     for epoch in range(num_epochs):
+        loop = tqdm(train_loader)
         model.train()
+        num_samples_train = 0
+        num_correct_train = 0
+        total_train_loss = 0
         for i, (X, y) in enumerate(loop):
             X, y = X.to(device), y.to(device)
+            num_samples_train += X.shape[0]
             with torch.amp.autocast(device_type=device):
                 outputs = model(X)
                 loss = criterion(outputs, y.unsqueeze(1))
+            total_train_loss += loss.item()
+            outputs = outputs > 0.5
+            num_correct_train += (outputs == y.unsqueeze(1)).sum().item()
 
             optimizer.zero_grad()
             scaler.scale(loss).backward()
             clip_grad_norm_(model.parameters(), max_norm=1.0)
             scaler.step(optimizer)
             scaler.update()
+        total_train_loss /= len(train_loader)
+        train_acc = 100 * num_correct_train / num_samples_train
 
         model.eval()
-        num_samples = 0
-        num_correct = 0
-        total_loss = 0
+        num_samples_val = 0
+        num_correct_val = 0
+        total_val_loss = 0
         with torch.no_grad():
             for (X, y) in val_loader:
-                num_samples += X.shape[0]
+                num_samples_val += X.shape[0]
                 with torch.amp.autocast(device_type=device):
                     outputs = model(X)
                     loss = criterion(outputs, y.unsqueeze(1))
-                total_loss += loss.item()
+                total_val_loss += loss.item()
                 outputs = outputs > 0.5
-                num_correct += (outputs == y.unsqueeze(1)).sum()
+                num_correct_val += (outputs == y.unsqueeze(1)).sum().item()
 
-        total_loss /= len(val_loader)
-        print(f"EPOCH: {epoch + 1}, LOSS: {total_loss}")
-        print(f"Accuracy: {num_correct} / {num_samples}")
+        total_val_loss /= len(val_loader)
+        val_acc = 100 * num_correct_val / num_samples_val
 
-        if early_stopper.early_stop(total_loss):
-            print(f"No improvement after {early_epochs} epochs, ")
+        if callback:
+            callback(epoch + 1, total_train_loss, train_acc, total_val_loss, val_acc)
+
+        if early_stopper.early_stop(total_val_loss):
             break
 
-    save_checkpoint(model, optimizer, "checkpoint.pth.tar")
+    save_checkpoint(model, f"{model_name}.pth.tar")
+    return round(train_acc, 2), round(val_acc, 2), epoch + 1

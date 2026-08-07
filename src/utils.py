@@ -25,17 +25,11 @@ def collate_fn(batch):
     return padded_seqs, torch.tensor(labels, dtype=torch.float32)
 
 
-def save_checkpoint(model, optimizer, filename):
-    checkpoint = {
-        "state_dict": model.state_dict(),
-        "optimizer": optimizer.state_dict()
-    }
+def save_checkpoint(model, filename):
+    checkpoint = {"state_dict": model.state_dict()}
     torch.save(checkpoint, filename)
 
 
-def load_checkpoint(filename, model, optimizer, lr, device):
+def load_checkpoint(filename, model, device):
     checkpoint = torch.load(filename, map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
-    for param_group in optimizer.param_groups:
-        param_group["lr"] = lr

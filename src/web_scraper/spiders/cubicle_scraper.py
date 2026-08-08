@@ -7,27 +7,30 @@ from urllib.parse import urlencode
 from web_scraper.items import ReviewItem
 
 
-CATEGORY_FILTER = ['2x2 Speed Cubes',
-                   '3x3 Speed Cubes',
-                   '4x4 Speed Cubes',
-                   '5x5 Speed Cubes',
-                   '6x6 Speed Cubes',
-                   '7x7 Speed Cubes',
-                   '8x8-21x21 Cubes',
-                   'Megaminx',
-                   'Pyraminx',
-                   'Square-1',
-                   'FTO',
-                   'Skewb',
-                   'Clock',
-                   'Cuboids',
-                   'Shape Mods',
-                   'Minx+',
-                   'Magic Panels',
-                   'Gear Cubes',
-                   'Picture Cubes',
-                   'Smart Cubes',
-                   'Mystery Puzzles']
+# Filter to ensure we only scrape puzzles and not accessories like lube.
+# Categories taken from https://www.thecubicle.com/pages/collections/all-cubes
+CATEGORY_FILTER = [
+    '2x2 Speed Cubes',
+    '3x3 Speed Cubes',
+    '4x4 Speed Cubes',
+    '5x5 Speed Cubes',
+    '6x6 Speed Cubes',
+    '7x7 Speed Cubes',
+    '8x8-21x21 Cubes',
+    'Megaminx',
+    'Pyraminx',
+    'Square-1',
+    'FTO',
+    'Skewb',
+    'Clock',
+    'Cuboids',
+    'Shape Mods',
+    'Minx+',
+    'Magic Panels',
+    'Gear Cubes',
+    'Picture Cubes',
+    'Smart Cubes'
+]
 REGEX_FILTER = "|".join(map(re.escape, CATEGORY_FILTER))
 
 
@@ -37,6 +40,8 @@ class CubicleScraperSpider(scrapy.Spider):
 
     def parse(self, response):
         brand_div = response.css("div.shopify-section")
+        # At present, the scraper looks for the first 20 brands on the top-brands page. Adjust the
+        # second value in the array slice below if you want more or less data.
         brand_links = brand_div.css("a::attr(href)").getall()[1:21]
 
         for brand_link in brand_links:
@@ -58,6 +63,7 @@ class CubicleScraperSpider(scrapy.Spider):
                     yield scrapy.Request(url=response.urljoin(product_link), callback=self.parse_product,
                                          errback=self.handle_error,  cb_kwargs={"review_number": review_number})
 
+        # This next page logic can be commented out if we only want the first page of products from each brand
         next_page = response.css("a[title*='Next']::attr(href)").get(default=None)
         if next_page is not None:
             yield scrapy.Request(url=response.urljoin(next_page), callback=self.parse_products,
@@ -115,10 +121,12 @@ class CubicleScraperSpider(scrapy.Spider):
     def parse_reviews(self, reviews):
         for review in reviews:
             review_item = ReviewItem()
+
             product_name = review.attrib.get("data-product-title", "").strip()
             body_paragraphs = review.css("div.jdgm-rev__body p::text").getall()
             body_text = " ".join(p.strip() for p in body_paragraphs if p.strip()).strip()
             title_text = review.css("b.jdgm-rev__title::text").get(default="").strip()
+
             score_raw = review.css("span.jdgm-rev__rating::attr(data-score)").get(default="0")
             try:
                 score = int(score_raw)
@@ -129,6 +137,7 @@ class CubicleScraperSpider(scrapy.Spider):
             review_item["review_title"] = title_text
             review_item["review_text"] = body_text
             review_item["score"] = score
+
             yield review_item
 
     def handle_error(self, failure):

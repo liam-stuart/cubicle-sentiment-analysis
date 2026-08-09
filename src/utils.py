@@ -1,5 +1,4 @@
 import torch
-from torch.nn.utils.rnn import pad_sequence
 
 
 class EarlyStopper:
@@ -19,12 +18,6 @@ class EarlyStopper:
             if self.counter >= self.patience:
                 return True
         return False
-
-
-def collate_fn(batch):
-    sequences, labels = zip(*batch)
-    padded_seqs = pad_sequence(sequences, batch_first=True, padding_value=0)
-    return padded_seqs, torch.tensor(labels, dtype=torch.float32)
 
 
 def save_checkpoint(model, filename):

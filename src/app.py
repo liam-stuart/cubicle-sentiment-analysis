@@ -4,9 +4,9 @@ import streamlit as st
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-from dataset import preprocess_dataframe, clean_text, build_vocab, text_to_sequence, ReviewDataset
+from preprocessing import clean_text, build_vocab, text_to_sequence, preprocess_dataframe, create_datasets
 from model import get_model
-from utils import collate_fn, load_checkpoint
+from utils import load_checkpoint
 from train import train_model
 from sklearn.model_selection import train_test_split
 
@@ -15,29 +15,29 @@ logger = logging.getLogger("cubicle-app")
 logging.basicConfig(level=logging.ERROR)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-if "review_data" in st.session_state:
-    df = st.session_state.review_data.copy(deep=True)
+if "vocab" in st.session_state:
+    vocab = st.session_state.vocab
+    vocab_size = st.session_state.vocab_size
+    train_dataset = st.session_state.train_dataset
+    val_dataset = st.session_state.val_dataset
+
 else:
     df = pd.read_csv("output.csv")
     df = preprocess_dataframe(df)
-    st.session_state.review_data = df.copy(deep=True)
 
-if "current_time" in st.session_state:
-    seed = st.session_state.current_time
-else:
     seed = int(time.time() % (2 ** 16))
-    st.session_state.current_time = seed
+    text = df[["full_text"]]
+    labels = df[["is_positive"]]
+    train_df, val_df, train_labels, val_labels = train_test_split(text, labels, random_state=seed, test_size=0.2,
+                                                                  stratify=labels)
 
-text = df[["full_text"]]
-labels = df[["is_positive"]]
-train_df, val_df, train_labels, val_labels = train_test_split(text, labels, random_state=seed, test_size=0.2,
-                                                              stratify=labels)
+    vocab, vocab_size = build_vocab(train_df)
+    train_dataset, val_dataset = create_datasets(vocab, train_df, train_labels, val_df, val_labels)
 
-vocab = build_vocab(train_df)
-vocab_size = max(vocab.values()) + 1
-
-train_dataset = ReviewDataset(vocab, train_df, train_labels)
-val_dataset = ReviewDataset(vocab, val_df, val_labels)
+    st.session_state.vocab = vocab
+    st.session_state.vocab_size = vocab_size
+    st.session_state.train_dataset = train_dataset
+    st.session_state.val_dataset = val_dataset
 
 
 st.title("Cubicle Sentiment Analysis App")
@@ -58,8 +58,8 @@ early_epochs = st.number_input("Early stopping epochs (stopping based on average
 st.write("Now, train the model! If you have already trained a model with the same name, it will be overwritten.")
 
 if st.button("Train model"):
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     model = get_model(model_name, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
 
     def on_epoch_end(epoch, val_loss, val_acc):
@@ -122,20 +122,19 @@ if st.button("Predict sentiment"):
         st.error("No model has been trained yet, sentiment analysis not possible.")
         exit()
 
-    if len(input_text) == 0:
+    if len(input_text.strip()) == 0:
         st.error("Please input some text for model prediction.")
         exit()
 
-    vocab_size = max(vocab.values()) + 1
     model = get_model(trained_model, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
     load_checkpoint(f"{trained_model}.pth.tar", model, device)
 
     cleaned_input = clean_text(input_text)
-    if len(cleaned_input) == 0:
-        st.error("Text is empty after internal cleaning process, please modify input.")
-        exit()
+    if len(cleaned_input.strip()) == 0:
+        sequence = torch.zeros(64, dtype=torch.long)
+    else:
+        sequence = torch.tensor(text_to_sequence(cleaned_input, vocab), dtype=torch.long)
 
-    sequence = torch.tensor(text_to_sequence(cleaned_input, vocab), dtype=torch.long)
     sequence = sequence.unsqueeze(0).to(device)
     output = torch.sigmoid(model(sequence))
 

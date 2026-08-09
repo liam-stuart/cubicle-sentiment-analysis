@@ -28,7 +28,7 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
             X, y = X.to(device), y.to(device)
             with torch.amp.autocast(device_type=device):
                 outputs = model(X)
-                outputs = outputs.squeeze(-1)
+                outputs = outputs
                 loss = criterion(outputs, y)
 
             optimizer.zero_grad()
@@ -50,7 +50,7 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
             for (X, y) in val_loader:
                 with torch.amp.autocast(device_type=device):
                     outputs = model(X)
-                    outputs = outputs.squeeze(-1)
+                    outputs = outputs
                     loss = criterion(outputs, y)
 
                 val_loss += loss.item()

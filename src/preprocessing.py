@@ -1,8 +1,9 @@
 from collections import Counter
-from torch.utils.data import Dataset
-import torch
 import re
 from functools import lru_cache
+import torch
+from torch.utils.data import TensorDataset
+from torch.nn.utils.rnn import pad_sequence
 import nltk
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
@@ -32,7 +33,8 @@ def build_vocab(df):
     vocab = {word: i + 2 for i, word in enumerate(valid_words)}
     vocab['<PAD>'] = 0
     vocab['<UNK>'] = 1
-    return vocab
+    vocab_size = max(vocab.values()) + 1
+    return vocab, vocab_size
 
 
 def text_to_sequence(text, vocab):
@@ -67,16 +69,19 @@ def preprocess_dataframe(df):
     return df
 
 
-class ReviewDataset(Dataset):
-    def __init__(self, vocab, sequences, labels):
-        sequences["full_text"] = sequences["full_text"].apply(lambda x: text_to_sequence(x, vocab))
-        self.sequences = sequences
-        self.labels = labels
+def create_datasets(vocab, train_df, train_labels, val_df, val_labels):
+    train_df["full_text"] = train_df["full_text"].apply(lambda x: text_to_sequence(x, vocab))
+    val_df["full_text"] = val_df["full_text"].apply(lambda x: text_to_sequence(x, vocab))
 
-    def __len__(self):
-        return len(self.sequences)
+    train_sequences = [torch.tensor(x, dtype=torch.long) for x in train_df["full_text"]]
+    val_sequences = [torch.tensor(x, dtype=torch.long) for x in val_df["full_text"]]
 
-    def __getitem__(self, idx):
-        seq, label = self.sequences.iloc[idx], self.labels.iloc[idx]
-        seq, label = seq.values[0], label.values[0]
-        return torch.tensor(seq, dtype=torch.long), torch.tensor(label, dtype=torch.float32)
+    train_df_tensor = pad_sequence(train_sequences, batch_first=True, padding_value=0)
+    train_labels_tensor = torch.tensor(train_labels.values, dtype=torch.float32)
+    val_df_tensor = pad_sequence(val_sequences, batch_first=True, padding_value=0)
+    val_labels_tensor = torch.tensor(val_labels.values, dtype=torch.float32)
+
+    train_dataset = TensorDataset(train_df_tensor, train_labels_tensor)
+    val_dataset = TensorDataset(val_df_tensor, val_labels_tensor)
+
+    return train_dataset, val_dataset

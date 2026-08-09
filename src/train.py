@@ -1,7 +1,7 @@
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
-from tqdm import tqdm
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     BinaryAccuracy,
@@ -17,7 +17,7 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
                 early_epochs, train_loader, val_loader, callback=None):
     model = model.to(device)
     # Dataset contains many more positive examples, so we weight them lower
-    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1]))
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1], device=device))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scaler = torch.amp.GradScaler(device=device)
     early_stopper = EarlyStopper(early_epochs)
@@ -28,7 +28,6 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
             X, y = X.to(device), y.to(device)
             with torch.amp.autocast(device_type=device):
                 outputs = model(X)
-                outputs = outputs
                 loss = criterion(outputs, y)
 
             optimizer.zero_grad()
@@ -40,14 +39,15 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
         model.eval()
         val_loss = 0
         metrics = MetricCollection({
-            'accuracy': BinaryAccuracy(),
-            'precision': BinaryPrecision(),
-            'recall': BinaryRecall(),
-            'specificity': BinarySpecificity(),
-            'f1': BinaryF1Score()
+            'accuracy': BinaryAccuracy().to(device),
+            'precision': BinaryPrecision().to(device),
+            'recall': BinaryRecall().to(device),
+            'specificity': BinarySpecificity().to(device),
+            'f1': BinaryF1Score().to(device)
         })
         with torch.no_grad():
             for (X, y) in val_loader:
+                X, y = X.to(device), y.to(device)
                 with torch.amp.autocast(device_type=device):
                     outputs = model(X)
                     outputs = outputs

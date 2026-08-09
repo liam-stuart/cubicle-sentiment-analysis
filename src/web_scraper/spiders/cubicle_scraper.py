@@ -1,9 +1,9 @@
-import scrapy
 import json
 import re
 import numpy as np
-from scrapy.selector import Selector
 from urllib.parse import urlencode
+import scrapy
+from scrapy.selector import Selector
 from web_scraper.items import ReviewItem
 
 

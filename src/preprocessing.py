@@ -1,5 +1,5 @@
-from collections import Counter
 import re
+from collections import Counter
 from functools import lru_cache
 import torch
 from torch.utils.data import TensorDataset
@@ -49,9 +49,10 @@ def preprocess_dataframe(df):
     # By default, we filled missing scores with 0, so these get dropped too
     df = df[~(df['score'].isin([0, 3]))]
 
-    df['product_name'] = df['product_name'].fillna('')
-    df['review_text'] = df['review_text'].fillna('')
-    df['review_title'] = df['review_title'].fillna('')
+    # Many reviews don't have titles, a rare few also have no text
+    # None in the default output.csv have missing titles, but included just in case
+    for col in ["product_name", "review_title", "review_text"]:
+        df.loc[df[col].isna(), col] = ""
 
     # A fair amount of reviews just have the product name as the review text, likely due to a migration
     # We just drop these reviews as their text is not correlated with the review score

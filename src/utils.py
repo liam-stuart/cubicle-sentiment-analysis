@@ -25,6 +25,6 @@ def save_checkpoint(model, filename):
     torch.save(checkpoint, filename)
 
 
-def load_checkpoint(filename, model, device):
-    checkpoint = torch.load(filename, map_location=device)
+def load_checkpoint(filename, model):
+    checkpoint = torch.load(filename)
     model.load_state_dict(checkpoint["state_dict"])

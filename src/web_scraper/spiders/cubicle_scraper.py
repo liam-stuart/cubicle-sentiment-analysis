@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from web_scraper.items import ReviewItem
 
 
-# Filter to ensure we only scrape puzzles and not accessories like lube.
+# Filter to ensure we only scrape puzzles and not accessories like lube
 # Categories taken from https://www.thecubicle.com/pages/collections/all-cubes
 CATEGORY_FILTER = [
     '2x2 Speed Cubes',
@@ -40,8 +40,8 @@ class CubicleScraperSpider(scrapy.Spider):
 
     def parse(self, response):
         brand_div = response.css("div.shopify-section")
-        # At present, the scraper looks for the first 20 brands on the top-brands page. Adjust the
-        # second value in the array slice below if you want more or less data.
+        # At present, the scraper looks for the first 20 brands on the top-brands page
+        # Adjust the second value in the array slice below if you want more or less data
         brand_links = brand_div.css("a::attr(href)").getall()[1:21]
 
         for brand_link in brand_links:

@@ -43,15 +43,15 @@ def preprocess_dataframe(df):
     df['product_name'] = df['product_name'].fillna('')
     df['review_text'] = df['review_text'].fillna('')
     df['review_title'] = df['review_title'].fillna('')
-    # A fair amount of reviews just have the product name as the review text, likely due to a migration.
-    # We just drop these reviews as their text is not correlated with the review score.
+    # A fair amount of reviews just have the product name as the review text, likely due to a migration
+    # We just drop these reviews as their text is not correlated with the review score
     df['product_name_combined'] = df['product_name'].apply(lambda x: x.strip().lower().replace(" ", ""))
     df['review_text_combined'] = df['review_text'].apply(lambda x: x.strip().lower().replace(" ", ""))
     df = df[~(df['product_name_combined'] == df['review_text_combined'])]
-    # Just in case we scraped duplicate pages.
+    # Just in case we scraped duplicate pages
     df.drop_duplicates(inplace=True)
     df['full_text'] = df['review_title'] + ' ' + df['review_text']
-    # We drop 3 star scores in order to make it easier for the models to classify positive/negative.
+    # We drop 3 star scores in order to make it easier for the models to classify positive/negative
     df = df[~(df['score'].isin([0, 3]))]
     df['is_positive'] = (df['score'] > 2).astype(int)
 

@@ -16,7 +16,7 @@ from utils import EarlyStopper
 def train_model(model, model_name, device, learning_rate, num_epochs,
                 early_epochs, train_loader, val_loader, callback=None):
     model = model.to(device)
-    # Dataset contains many more positive examples, so we weight them lower.
+    # Dataset contains many more positive examples, so we weight them lower
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1]))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scaler = torch.amp.GradScaler(device=device)

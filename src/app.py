@@ -1,18 +1,44 @@
-import json
 import logging
+import time
 import streamlit as st
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-from dataset import clean_text, text_to_sequence, ReviewDataset
+from dataset import preprocess_dataframe, clean_text, build_vocab, text_to_sequence, ReviewDataset
 from model import get_model
 from utils import collate_fn, load_checkpoint
 from train import train_model
+from sklearn.model_selection import train_test_split
 
 
 logger = logging.getLogger("cubicle-app")
 logging.basicConfig(level=logging.ERROR)
 device = "cuda" if torch.cuda.is_available() else "cpu"
+
+if "review_data" in st.session_state:
+    df = st.session_state.review_data.copy(deep=True)
+else:
+    df = pd.read_csv("output.csv")
+    df = preprocess_dataframe(df)
+    st.session_state.review_data = df.copy(deep=True)
+
+if "current_time" in st.session_state:
+    seed = st.session_state.current_time
+else:
+    seed = int(time.time() % (2 ** 16))
+    st.session_state.current_time = seed
+
+text = df[["full_text"]]
+labels = df[["is_positive"]]
+train_df, val_df, train_labels, val_labels = train_test_split(text, labels, random_state=seed, test_size=0.2,
+                                                              stratify=labels)
+
+vocab = build_vocab(train_df)
+vocab_size = max(vocab.values()) + 1
+
+train_dataset = ReviewDataset(vocab, train_df, train_labels)
+val_dataset = ReviewDataset(vocab, val_df, val_labels)
+
 
 st.title("Cubicle Sentiment Analysis App")
 
@@ -32,31 +58,27 @@ early_epochs = st.number_input("Early stopping epochs (stopping based on average
 st.write("Now, train the model! If you have already trained a model with the same name, it will be overwritten.")
 
 if st.button("Train model"):
-    try:
-        with open("vocab.json", "r") as f:
-            vocab = json.load(f)
-    except FileNotFoundError:
-        st.error("No vocabulary found, please run dataset.py to generate a vocabulary.")
-        exit()
-
-    train_dataset = ReviewDataset(vocab=vocab, train=True)
-    val_dataset = ReviewDataset(vocab=vocab, train=False)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-
-    vocab_size = max(vocab.values()) + 1
     model = get_model(model_name, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
 
     def on_epoch_end(epoch, val_loss, val_acc):
-        status_text.markdown(
-            "TRAINING INFORMATION\n\n"
-            "====================\n\n"
-            f"Epoch: {epoch}\n\n"
-            f"Validation Loss: {val_loss:.4f}\n\n"
-            f"Validation Accuracy: {val_acc:.2f}%"
-        )
+        header_text.markdown("Training information:")
+        info_df = pd.DataFrame({
+            "Info": ["Epoch", "Validation Loss", "Validation Accuracy"],
+            "Value": [f"{epoch}", f"{val_loss:.4f}", f"{val_acc:.2f}"]
+        })
+        status_text.dataframe(info_df,
+                              hide_index=True,
+                              column_config={
+                                  "Info": st.column_config.Column("Info", alignment="left"),
+                                  "Value": st.column_config.Column("Value", alignment="left"),
+                              },
+                              width="stretch"
+                              )
 
     with st.spinner("Model training, please wait...", show_time=True):
+        header_text = st.empty()
         status_text = st.empty()
         try:
             results, epochs = train_model(model, model_name, device, learning_rate,
@@ -66,7 +88,6 @@ if st.button("Train model"):
             st.error("Model training failed. See terminal output for further details.")
             exit()
 
-    status_text.empty()
     st.success(f"Training complete!\n\nEpochs Trained: {epochs}")
     if "trained_models" not in st.session_state:
         st.session_state.trained_models = set()
@@ -104,9 +125,6 @@ if st.button("Predict sentiment"):
     if len(input_text) == 0:
         st.error("Please input some text for model prediction.")
         exit()
-
-    with open("vocab.json", "r") as f:
-        vocab = json.load(f)
 
     vocab_size = max(vocab.values()) + 1
     model = get_model(trained_model, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)

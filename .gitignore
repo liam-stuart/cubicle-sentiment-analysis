@@ -1,6 +1,4 @@
 .venv/
-src/train/
-src/val/
 **/__pycache__
 **.tar
-**.json
+**.ipynb

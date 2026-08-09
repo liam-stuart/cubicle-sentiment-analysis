@@ -8,7 +8,7 @@ from torchmetrics.classification import (
     BinaryPrecision,
     BinaryRecall,
     BinarySpecificity,
-    BinaryF1Score,
+    BinaryF1Score
 )
 from utils import EarlyStopper
 
@@ -61,7 +61,7 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
         results = metrics.compute()
 
         if callback:
-            callback(epoch + 1, val_loss, 100 * results["accuracy"].item())
+            callback(epoch + 1, val_loss, results["accuracy"].item())
 
         if early_stopper.early_stop(val_loss, model, model_name, results):
             break

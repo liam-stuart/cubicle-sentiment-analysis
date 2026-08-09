@@ -36,7 +36,7 @@ def build_vocab(df):
 
 
 def text_to_sequence(text, vocab):
-    return [vocab.get(word, vocab["<UNK>"]) for word in text.split()][:256]
+    return [vocab.get(word, vocab["<UNK>"]) for word in text.split()][:64]
 
 
 def preprocess_dataframe(df):

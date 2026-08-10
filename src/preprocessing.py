@@ -11,7 +11,7 @@ nltk.download('wordnet', quiet=True)
 
 STOPWORDS = nltk.corpus.stopwords.words('english')
 LEMMATIZER = nltk.WordNetLemmatizer()
-NON_ALPHANUM = re.compile(r'[^\w\s]')
+PATTERN = re.compile(r'[^\w\s]|\d+')
 
 
 @lru_cache(maxsize=10000)
@@ -20,7 +20,7 @@ def cached_lemmatize(word):
 
 
 def clean_text(text):
-    text = NON_ALPHANUM.sub('', text.lower())
+    text = PATTERN.sub('', text.lower())
     words = text.split()
     tokens = [cached_lemmatize(w) for w in words if len(w) > 1 and w not in STOPWORDS]
     return " ".join(tokens)
@@ -67,6 +67,7 @@ def preprocess_dataframe(df):
     df.drop(['product_name', 'review_title', 'review_text', 'score'], axis=1, inplace=True)
     df["full_text"] = df["full_text"].apply(lambda x: clean_text(x))
     df = df[df["full_text"] != ""]
+    df.reset_index(drop=True, inplace=True)
     return df
 
 

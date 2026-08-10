@@ -14,7 +14,7 @@ from utils import EarlyStopper
 
 
 def train_model(model, model_name, device, learning_rate, num_epochs,
-                early_epochs, train_loader, val_loader, callback=None):
+                early_epochs, train_loader, val_loader, callback):
     model = model.to(device)
     # Dataset contains many more positive examples, so we weight them lower
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1], device=device))
@@ -24,10 +24,10 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
     for epoch in range(num_epochs):
         loop = tqdm(train_loader)
         model.train()
-        for i, (X, y) in enumerate(loop):
-            X, y = X.to(device), y.to(device)
+        for i, (x, y) in enumerate(loop):
+            x, y = x.to(device), y.to(device)
             with torch.amp.autocast(device_type=device):
-                outputs = model(X)
+                outputs = model(x)
                 loss = criterion(outputs, y)
 
             optimizer.zero_grad()
@@ -46,10 +46,10 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
             'f1': BinaryF1Score().to(device)
         })
         with torch.no_grad():
-            for (X, y) in val_loader:
-                X, y = X.to(device), y.to(device)
+            for (x, y) in val_loader:
+                x, y = x.to(device), y.to(device)
                 with torch.amp.autocast(device_type=device):
-                    outputs = model(X)
+                    outputs = model(x)
                     outputs = outputs
                     loss = criterion(outputs, y)
 
@@ -60,8 +60,7 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
         val_loss /= len(val_loader)
         results = metrics.compute()
 
-        if callback:
-            callback(epoch + 1, val_loss, results["accuracy"].item())
+        callback(epoch + 1, val_loss, results["accuracy"].item())
 
         if early_stopper.early_stop(val_loss, model, model_name, results):
             break

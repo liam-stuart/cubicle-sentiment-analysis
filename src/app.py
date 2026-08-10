@@ -5,8 +5,8 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
+from model import Model
 from preprocessing import clean_text, build_vocab, text_to_sequence, preprocess_dataframe, create_datasets
-from model import get_model
 from utils import load_checkpoint
 from train import train_model
 
@@ -44,36 +44,26 @@ else:
 st.title("Cubicle Sentiment Analysis App")
 
 st.write("First, start by picking a model to train.")
-model_name = st.selectbox("Choose a model", ("GRU", "LSTM", "RNN"))
+model_name = st.selectbox("Choose a model", ("GRU", "LSTM", "RNN"), key="model_name")
 
 st.write("Next, specify some training parameters.")
 
-embedding_dim = st.selectbox("Embedding dimension for text", (32, 64, 128, 256))
-hidden_dim = st.selectbox("Hidden dimension for models", (32, 64, 128, 256))
-batch_size = st.selectbox("Batch size", (32, 64, 128, 256, 512))
-learning_rate = st.selectbox("Learning rate", (0.01, 0.005, 1e-3, 5e-4, 1e-4))
-num_epochs = st.number_input("Number of training epochs", min_value=1, value=5, step=1)
+embedding_dim = st.selectbox("Embedding dimension for text", (32, 64, 128, 256), key="embedding")
+hidden_dim = st.selectbox("Hidden dimension for models", (32, 64, 128, 256), key="hidden")
+batch_size = st.selectbox("Batch size", (32, 64, 128, 256, 512), key="batch")
+learning_rate = st.selectbox("Learning rate", (0.01, 0.005, 1e-3, 5e-4, 1e-4), key="lr")
+num_epochs = st.number_input("Number of training epochs", min_value=1, value=5, step=1, key="num_epochs")
 early_epochs = st.number_input("Early stopping epochs (stopping based on average batch validation loss)",
-                               min_value=1, value=1, step=1)
+                               min_value=1, value=1, step=1, key="early_epochs")
 
-st.write("Now, train the model! If you have already trained a model with the same name, you can optionally "
-         "check the box below to load in its weights and start training from there. "
-         "Otherwise, the model will be overwritten.")
-load_model = st.checkbox("Load trained model?")
+st.write("Now, train the model! If you have already trained a model with the same name, it will be overwritten.")
 
-if st.button("Train model"):
+if st.button("Train model", key="train_model"):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    model = get_model(model_name, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
+    model = Model(model_name, vocab_size, embedding_dim, hidden_dim)
 
-    if load_model:
-        if model_name not in st.session_state.get("trained_models", set()):
-            st.error(f"No model with name {model_name} has been trained yet, please uncheck box.")
-            exit()
-        else:
-            load_checkpoint(f"{model_name}.pth.tar", model)
-
-    def on_epoch_end(epoch, val_loss, val_acc):
+    def callback(epoch, val_loss, val_acc):
         header_text.markdown("Training information:")
         info_df = pd.DataFrame({
             "Info": ["Epoch", "Validation Loss", "Validation Accuracy"],
@@ -92,7 +82,7 @@ if st.button("Train model"):
         header_text = st.empty()
         status_text = st.empty()
         results, epochs = train_model(model, model_name, device, learning_rate,
-                                      num_epochs, early_epochs, train_loader, val_loader, on_epoch_end)
+                                      num_epochs, early_epochs, train_loader, val_loader, callback)
 
     st.success(f"Training complete!\n\nEpochs Trained: {epochs}")
 
@@ -122,20 +112,22 @@ if st.button("Train model"):
                  )
 
 st.write("After training, input some text, and the model will try to determine the sentiment.")
-trained_models = st.session_state.get("trained_models", set())
-trained_model = st.selectbox("Model for prediction", trained_models)
-input_text = st.text_input("Type some review text")
+trained_models = list(st.session_state.get("trained_models", set()))
+trained_models.sort(key= lambda x: (x.split(",")[0], int(re.search(r'Embedding Dim: (\d+)', x).group(1)), 
+                                                     int(re.search(r'Hidden Dim: (\d+)', x).group(1))))
+trained_model = st.selectbox("Model for prediction", trained_models, key="trained_model")
+input_text = st.text_input("Type some review text", key="review_text")
 
-if st.button("Predict sentiment"):
+if st.button("Predict sentiment", key="predict"):
     if "trained_models" not in st.session_state:
         st.error("No model has been trained yet, sentiment analysis not possible.")
-        exit()
+        st.stop()
 
     if len(input_text.strip()) == 0:
         st.error("Please input some text for model prediction.")
-        exit()
+        st.stop()
 
-    model = get_model(trained_model, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
+    model = Model(trained_model, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
     load_checkpoint(f"{trained_model}.pth.tar", model)
     model = model.to(device)
     model.eval()
@@ -150,5 +142,5 @@ if st.button("Predict sentiment"):
     with torch.no_grad():
         output = torch.sigmoid(model(sequence))
 
-    sentiment = ":green[Positive] :+1:" if output > 0.5 else ":red[Negative] :-1:"
+    sentiment = ":green[Positive] :+1:" if output.item() > 0.5 else ":red[Negative] :-1:"
     st.markdown(f"Predicted sentiment: {sentiment}")

@@ -1,0 +1,3 @@
+# Cubicle Sentiment Analysis App
+
+The following is a sentiment analysis app built using Python which, given some review text as input, tries to predict if the sentiment is positive or negative. For training, reviews for products are scraped from the Cubicle, a company specialising in speedcubing and twisty puzzles. We utilize a web scraper to gather product reviews from some of the companies listed on the <a href=https://www.thecubicle.com/pages/collections/top-brands>top brands</a> page. We then use a Streamlit app to provide an interactive way for users to specify model training parameters.

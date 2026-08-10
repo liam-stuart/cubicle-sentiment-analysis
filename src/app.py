@@ -56,12 +56,22 @@ num_epochs = st.number_input("Number of training epochs", min_value=1, value=5, 
 early_epochs = st.number_input("Early stopping epochs (stopping based on average batch validation loss)",
                                min_value=1, value=1, step=1)
 
-st.write("Now, train the model! If you have already trained a model with the same name, it will be overwritten.")
+st.write("Now, train the model! If you have already trained a model with the same name, you can optionally "
+         "check the box below to load in its weights and start training from there. "
+         "Otherwise, the model will be overwritten.")
+load_model = st.checkbox("Load trained model?")
 
 if st.button("Train model"):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     model = get_model(model_name, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
+
+    if load_model:
+        if model_name not in st.session_state.get("trained_models", set()):
+            st.error(f"No model with name {model_name} has been trained yet, please uncheck box.")
+            exit()
+        else:
+            load_checkpoint(f"{model_name}.pth.tar", model)
 
     def on_epoch_end(epoch, val_loss, val_acc):
         header_text.markdown("Training information:")
@@ -112,7 +122,7 @@ if st.button("Train model"):
                  )
 
 st.write("After training, input some text, and the model will try to determine the sentiment.")
-trained_models = st.session_state.get("trained_models", ())
+trained_models = st.session_state.get("trained_models", set())
 trained_model = st.selectbox("Model for prediction", trained_models)
 input_text = st.text_input("Type some review text")
 

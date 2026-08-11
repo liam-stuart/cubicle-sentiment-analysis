@@ -5,7 +5,7 @@ The following is a sentiment analysis app built using Python which, given some r
 A link to an online version of the app can be found <a href=https://cubicle-sentiment-analysis.streamlit.app>here</a>. 
 
 ## App demonstration
-https://github.com/user-attachments/assets/caebffd7-16cd-497b-8296-ec8b4d258033
+https://github.com/user-attachments/assets/1cd00660-415e-43db-9356-c6b459c4359f
 
 ## Local Setup
 Start by cloning the repository then navigating into the project's root directory. Afterwords, set up a virtual environment and install the `requirements.txt` file.

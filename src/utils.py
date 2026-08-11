@@ -12,7 +12,7 @@ class EarlyStopper:
             self.min_validation_loss = validation_loss
             self.counter = 0
             self.results = results
-            save_checkpoint(model, f"{model_name}.pth.tar")
+            save_checkpoint(model, f"src/{model_name}.pth.tar")
         elif validation_loss > (self.min_validation_loss):
             self.counter += 1
             if self.counter >= self.patience:

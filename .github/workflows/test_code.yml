@@ -20,10 +20,9 @@ jobs:
 
       - name: Unit Tests/Coverage
         run: |
-          cd src
-          pip install -r ../requirements.txt
+          pip install -r requirements.txt
           pip install pytest pytest-cov
-          python -m pytest --cov=app --cov=model --cov=preprocessing --cov=train --cov=utils tests --cov-report= --cov-append
+          python -m pytest --cov=app --cov=model --cov=preprocessing --cov=train --cov=utils src/tests --cov-report= --cov-append
           python -m coverage report --fail-under=90
 
   flake8:

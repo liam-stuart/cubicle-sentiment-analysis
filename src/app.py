@@ -23,7 +23,7 @@ if "vocab" in st.session_state:
 
 else:
     with st.spinner("App is loading, please wait..."):
-        df = pd.read_csv("output.csv")
+        df = pd.read_csv("src/output.csv")
         df = preprocess_dataframe(df)
 
         seed = int(time.time() % (2 ** 16))
@@ -128,7 +128,7 @@ if st.button("Predict sentiment", key="predict"):
         st.stop()
 
     model = Model(trained_model, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
-    load_checkpoint(f"{trained_model}.pth.tar", model)
+    load_checkpoint(f"src/{trained_model}.pth.tar", model)
     model = model.to(device)
     model.eval()
 

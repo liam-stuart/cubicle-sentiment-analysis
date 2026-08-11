@@ -6,8 +6,8 @@ import torch
 from streamlit.testing.v1 import AppTest
 
 
-checkpoint_file = "GRU.pth.tar"
-fake_data = pd.read_csv("tests/test.csv")
+checkpoint_file = "src/GRU.pth.tar"
+fake_data = pd.read_csv("src/tests/test.csv")
 zero_calls = 0
 original_zeros = torch.zeros
 
@@ -29,7 +29,7 @@ def fake_train_model(*args, **kwargs):
     model_name = args[1]
     callback = args[-1]
     callback(1, 0.012345, 0.90)
-    file_path = f"{model_name}.pth.tar"
+    file_path = f"src/{model_name}.pth.tar"
     with open(file_path, "w") as f:
         f.write("Super cool model weights.")
     return fake_results, 1

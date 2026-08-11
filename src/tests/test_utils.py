@@ -6,7 +6,7 @@ from model import Model
 
 
 dummy_model = Model("GRU", 100, 32, 32)
-checkpoint_file = "GRU.pth.tar"
+checkpoint_file = "src/GRU.pth.tar"
 fake_results = {
     "accuracy": torch.tensor(0.9),
     "precision": torch.tensor(0.9),

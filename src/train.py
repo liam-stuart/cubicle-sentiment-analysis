@@ -10,15 +10,21 @@ from torchmetrics.classification import (
     BinarySpecificity,
     BinaryF1Score
 )
-from utils import EarlyStopper
+from utils import EarlyStopper, load_checkpoint
 
 
-def train_model(model, model_name, device, learning_rate, num_epochs,
-                early_epochs, train_loader, val_loader, callback):
+def train_model(model, model_args, device, learning_rate, num_epochs,
+                early_epochs, train_loader, val_loader, callback, load_model):
     model = model.to(device)
     # Dataset contains many more positive examples, so we weight them lower
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1], device=device))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    if load_model:
+        model_name, embedding_dim, hidden_dim = model_args
+        file_path = f"src/{model_name}_{embedding_dim}_{hidden_dim}.pth.tar"
+        load_checkpoint(file_path, model, optimizer, learning_rate)
+
     scaler = torch.amp.GradScaler(device=device)
     early_stopper = EarlyStopper(early_epochs)
     for epoch in range(num_epochs):
@@ -62,7 +68,7 @@ def train_model(model, model_name, device, learning_rate, num_epochs,
 
         callback(epoch + 1, val_loss, results["accuracy"].item())
 
-        if early_stopper.early_stop(val_loss, model, model_name, results):
+        if early_stopper.early_stop(val_loss, model, model_args, optimizer, results):
             break
 
         metrics.reset()

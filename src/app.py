@@ -1,5 +1,8 @@
 import logging
 import time
+import re
+import os
+import glob
 import streamlit as st
 import pandas as pd
 import torch
@@ -40,6 +43,11 @@ else:
         st.session_state.train_dataset = train_dataset
         st.session_state.val_dataset = val_dataset
 
+        # Clean up any existing checkpoint files to avoid confusion with new training runs
+        tar_files = glob.glob(os.path.join("src", "*.tar"))
+        for tar_file in tar_files:
+            os.remove(tar_file)
+
 
 st.title("Cubicle Sentiment Analysis App")
 
@@ -56,12 +64,17 @@ num_epochs = st.number_input("Number of training epochs", min_value=1, value=5, 
 early_epochs = st.number_input("Early stopping epochs (stopping based on average batch validation loss)",
                                min_value=1, value=1, step=1, key="early_epochs")
 
-st.write("Now, train the model! If you have already trained a model with the same name, it will be overwritten.")
+st.write("Now, train the model! If you have already trained a model with the same parameters "
+         "(model name, embedding dimension, and hidden dimension), you can optionally check "
+         "the box below to load the previously trained model for additional training. Otherwise, the model will be "
+         "trained from scratch and will overwrite the already existing model.")
+load_model = st.checkbox("Load previous model?", key="load_model")
 
 if st.button("Train model", key="train_model"):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     model = Model(model_name, vocab_size, embedding_dim, hidden_dim)
+    model_args = [model_name, embedding_dim, hidden_dim]
 
     def callback(epoch, val_loss, val_acc):
         header_text.markdown("Training information:")
@@ -81,14 +94,26 @@ if st.button("Train model", key="train_model"):
     with st.spinner("Model training, please wait...", show_time=True):
         header_text = st.empty()
         status_text = st.empty()
-        results, epochs = train_model(model, model_name, device, learning_rate,
-                                      num_epochs, early_epochs, train_loader, val_loader, callback)
+        if load_model:
+            try:
+                results, epochs = train_model(model, model_args, device, learning_rate,
+                                              num_epochs, early_epochs, train_loader, val_loader, callback, load_model)
+            except FileNotFoundError:
+                st.warning("No checkpoint found for the specified model parameters. Training from scratch.")
+                header_text = st.empty()
+                status_text = st.empty()
+                results, epochs = train_model(model, model_args, device, learning_rate,
+                                              num_epochs, early_epochs, train_loader, val_loader,
+                                              callback, not load_model)
+        else:
+            results, epochs = train_model(model, model_args, device, learning_rate,
+                                          num_epochs, early_epochs, train_loader, val_loader, callback, load_model)
 
     st.success(f"Training complete!\n\nEpochs Trained: {epochs}")
 
     if "trained_models" not in st.session_state:
         st.session_state.trained_models = set()
-    st.session_state.trained_models.add(model_name)
+    st.session_state.trained_models.add(f"{model_name}, Embedding Dim: {embedding_dim}, Hidden Dim: {hidden_dim}")
 
     result_df = pd.DataFrame({
         "Metric": ["Accuracy", "Precision", "Recall", "Specificity", "F1 Score"],
@@ -127,8 +152,10 @@ if st.button("Predict sentiment", key="predict"):
         st.error("Please input some text for model prediction.")
         st.stop()
 
-    model = Model(trained_model, vocab_size=vocab_size, embedding_dim=embedding_dim, hidden_dim=hidden_dim)
-    load_checkpoint(f"src/{trained_model}.pth.tar", model)
+    split_trained_model = re.split(", |: ", trained_model)
+    trained_model_name, embed, hidden = split_trained_model[0], split_trained_model[2], split_trained_model[4]
+    model = Model(trained_model_name, vocab_size=vocab_size, embedding_dim=int(embed), hidden_dim=int(hidden_dim))
+    load_checkpoint(f"src/{trained_model_name}_{embed}_{hidden}.pth.tar", model)
     model = model.to(device)
     model.eval()
 

@@ -1,6 +1,7 @@
 import re
 from collections import Counter
 from functools import lru_cache
+import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
 from torch.nn.utils.rnn import pad_sequence
@@ -19,14 +20,14 @@ def cached_lemmatize(word):
     return LEMMATIZER.lemmatize(word)
 
 
-def clean_text(text):
+def clean_text(text: str) -> str:
     text = PATTERN.sub('', text.lower())
     words = text.split()
     tokens = [cached_lemmatize(w) for w in words if len(w) > 1 and w not in STOPWORDS]
     return " ".join(tokens)
 
 
-def build_vocab(df):
+def build_vocab(df: pd.DataFrame) -> tuple[dict[str, int], int]:
     all_words = " ".join(df['full_text']).split()
     word_counts = Counter(all_words)
     valid_words = [word for word, count in word_counts.items() if count >= 2]
@@ -37,11 +38,11 @@ def build_vocab(df):
     return vocab, vocab_size
 
 
-def text_to_sequence(text, vocab):
+def text_to_sequence(text: str, vocab: dict[str, int]) -> list[int]:
     return [vocab.get(word, vocab["<UNK>"]) for word in text.split()][:64]
 
 
-def preprocess_dataframe(df):
+def preprocess_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # Just in case we scraped duplicate pages
     df.drop_duplicates(inplace=True)
 
@@ -71,7 +72,8 @@ def preprocess_dataframe(df):
     return df
 
 
-def create_datasets(vocab, train_df, train_labels, val_df, val_labels):
+def create_datasets(vocab: dict[str, int], train_df: pd.DataFrame, train_labels: pd.DataFrame,
+                    val_df: pd.DataFrame, val_labels: pd.DataFrame) -> tuple[TensorDataset, TensorDataset]:
     train_df["full_text"] = train_df["full_text"].apply(lambda x: text_to_sequence(x, vocab))
     val_df["full_text"] = val_df["full_text"].apply(lambda x: text_to_sequence(x, vocab))
 

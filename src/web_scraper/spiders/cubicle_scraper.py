@@ -1,9 +1,12 @@
 import json
 import re
+import parsel
+from typing import Generator
 import numpy as np
 from urllib.parse import urlencode
 import scrapy
 from scrapy.selector import Selector
+from scrapy.exceptions import Any
 from web_scraper.items import ReviewItem
 
 
@@ -38,7 +41,7 @@ class CubicleScraperSpider(scrapy.Spider):
     name = "cubicle_scraper"
     start_urls = ["https://www.thecubicle.com/pages/collections/top-brands"]
 
-    def parse(self, response):
+    def parse(self, response: scrapy.http.Response) -> Generator[scrapy.Request, None, None]:
         brand_div = response.css("div.shopify-section")
         # At present, the scraper looks for the first 20 brands on the top-brands page
         # Adjust the second value in the array slice below if you want more or less data
@@ -48,7 +51,7 @@ class CubicleScraperSpider(scrapy.Spider):
             yield scrapy.Request(url=response.urljoin(brand_link), callback=self.parse_products,
                                  errback=self.handle_error)
 
-    def parse_products(self, response):
+    def parse_products(self, response: scrapy.http.Response) -> Generator[scrapy.Request, None, None]:
         product_cards = response.css("div[x-data='productCard']")
         for product_card in product_cards:
             review_number_raw = product_card.css("div::attr(data-number-of-reviews)").get(default="0")
@@ -69,7 +72,8 @@ class CubicleScraperSpider(scrapy.Spider):
             yield scrapy.Request(url=response.urljoin(next_page), callback=self.parse_products,
                                  errback=self.handle_error)
 
-    def parse_product(self, response, review_number):
+    def parse_product(self, response: scrapy.http.Response,
+                      review_number: int) -> Generator[scrapy.Request, None, None]:
         categories = response.xpath('//table//*[text()="Type"]/following-sibling::*[1]//text()').getall()
         categories = " ".join([item.strip() for item in categories if item.strip()])
 
@@ -88,7 +92,7 @@ class CubicleScraperSpider(scrapy.Spider):
                 self.logger.warning("Could not locate Judge.me product ID for request.")
                 return
 
-    def pagination_request(self, product_id, page):
+    def pagination_request(self, product_id: str, page: int) -> scrapy.Request:
         params = {
             "url": "thecubicleus.myshopify.com",
             "shop_domain": "thecubicleus.myshopify.com",
@@ -101,7 +105,7 @@ class CubicleScraperSpider(scrapy.Spider):
 
         return scrapy.Request(url=url, callback=self.parse_judge_me, errback=self.handle_error)
 
-    def parse_judge_me(self, response):
+    def parse_judge_me(self, response: scrapy.http.Response) -> Generator[ReviewItem, None, None]:
         try:
             data = json.loads(response.text)
         except json.JSONDecodeError:
@@ -111,14 +115,14 @@ class CubicleScraperSpider(scrapy.Spider):
         if not html_content:
             return
 
-        response = Selector(text=html_content)
-        reviews = response.css("div.jdgm-rev")
+        raw_judge_me = Selector(text=html_content)
+        reviews = raw_judge_me.css("div.jdgm-rev")
         if not reviews:
             return
 
         yield from self.parse_reviews(reviews=reviews)
 
-    def parse_reviews(self, reviews):
+    def parse_reviews(self, reviews: parsel.selector.SelectorList[Selector]) -> Generator[ReviewItem, None, None]:
         for review in reviews:
             review_item = ReviewItem()
 
@@ -140,5 +144,5 @@ class CubicleScraperSpider(scrapy.Spider):
 
             yield review_item
 
-    def handle_error(self, failure):
+    def handle_error(self, failure: Any) -> None:
         self.logger.error(f"Request failed: {failure}")

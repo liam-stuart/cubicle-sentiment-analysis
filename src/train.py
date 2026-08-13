@@ -1,7 +1,9 @@
+from typing import Callable
 from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     BinaryAccuracy,
@@ -13,8 +15,9 @@ from torchmetrics.classification import (
 from utils import EarlyStopper, load_checkpoint
 
 
-def train_model(model, model_args, device, learning_rate, num_epochs,
-                early_epochs, train_loader, val_loader, callback, load_model):
+def train_model(model: nn.Module, model_args: list, device: str, learning_rate: float, num_epochs: int,
+                early_epochs: int, train_loader: DataLoader, val_loader: DataLoader,
+                callback: Callable[[int, float, float], None], load_model: bool) -> tuple[dict[str, torch.Tensor], int]:
     model = model.to(device)
     # Dataset contains many more positive examples, so we weight them lower
     criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([0.1], device=device))

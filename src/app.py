@@ -1,5 +1,3 @@
-import logging
-import time
 import re
 import os
 import glob
@@ -14,8 +12,6 @@ from utils import load_checkpoint
 from train import train_model
 
 
-logger = logging.getLogger("cubicle-app")
-logging.basicConfig(level=logging.ERROR)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 if "vocab" in st.session_state:
@@ -29,11 +25,9 @@ else:
         df = pd.read_csv("src/output.csv")
         df = preprocess_dataframe(df)
 
-        seed = int(time.time() % (2 ** 16))
         text = df[["full_text"]]
         labels = df[["is_positive"]]
-        train_df, val_df, train_labels, val_labels = train_test_split(text, labels, random_state=seed, test_size=0.2,
-                                                                      stratify=labels)
+        train_df, val_df, train_labels, val_labels = train_test_split(text, labels, test_size=0.2, stratify=labels)
 
         vocab, vocab_size = build_vocab(train_df)
         train_dataset, val_dataset = create_datasets(vocab, train_df, train_labels, val_df, val_labels)
@@ -76,7 +70,7 @@ if st.button("Train model", key="train_model"):
     model = Model(model_name, vocab_size, embedding_dim, hidden_dim)
     model_args = [model_name, embedding_dim, hidden_dim]
 
-    def callback(epoch, val_loss, val_acc):
+    def callback(epoch: int, val_loss: float, val_acc: float) -> None:
         header_text.markdown("Training information:")
         info_df = pd.DataFrame({
             "Info": ["Epoch", "Validation Loss", "Validation Accuracy"],
@@ -138,8 +132,8 @@ if st.button("Train model", key="train_model"):
 
 st.write("After training, input some text, and the model will try to determine the sentiment.")
 trained_models = list(st.session_state.get("trained_models", set()))
-trained_models.sort(key= lambda x: (x.split(",")[0], int(re.search(r'Embedding Dim: (\d+)', x).group(1)), 
-                                                     int(re.search(r'Hidden Dim: (\d+)', x).group(1))))
+trained_models.sort(key=lambda x: (x.split(",")[0], int(re.search(r'Embedding Dim: (\d+)', x).group(1)),
+                    int(re.search(r'Hidden Dim: (\d+)', x).group(1))))
 trained_model = st.selectbox("Model for prediction", trained_models, key="trained_model")
 input_text = st.text_input("Type some review text", key="review_text")
 

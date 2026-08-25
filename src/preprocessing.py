@@ -6,10 +6,21 @@ import torch
 from torch.utils.data import TensorDataset
 from torch.nn.utils.rnn import pad_sequence
 import nltk
-nltk.download('stopwords', quiet=True)
-nltk.download('wordnet', quiet=True)
 
 
+def check_nltk() -> None:
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords', quiet=True)
+
+    try:
+        nltk.data.find('corpora/wordnet')
+    except LookupError:
+        nltk.download('wordnet', quiet=True)
+
+
+check_nltk()
 STOPWORDS = nltk.corpus.stopwords.words('english')
 LEMMATIZER = nltk.WordNetLemmatizer()
 PATTERN = re.compile(r'[^\w\s]|\d+')

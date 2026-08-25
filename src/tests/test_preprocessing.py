@@ -1,7 +1,26 @@
+from unittest.mock import patch
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
-from preprocessing import clean_text, build_vocab, text_to_sequence, preprocess_dataframe, create_datasets
+from preprocessing import check_nltk, clean_text, build_vocab, text_to_sequence, preprocess_dataframe, create_datasets
+
+
+@patch('nltk.download')
+@patch('nltk.data.find')
+def test_nltk_data_already_exists(mock_find, mock_download):
+    mock_find.return_value = '/path/to/mock/data'
+    check_nltk()
+    mock_download.assert_not_called()
+
+
+@patch('nltk.download')
+@patch('nltk.data.find')
+def test_nltk_data_missing(mock_find, mock_download):
+    mock_find.side_effect = LookupError
+    check_nltk()
+    assert mock_download.call_count == 2
+    mock_download.assert_any_call('stopwords', quiet=True)
+    mock_download.assert_any_call('wordnet', quiet=True)
 
 
 def test_clean_text():

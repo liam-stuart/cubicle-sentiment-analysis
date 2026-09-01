@@ -5,7 +5,6 @@ import torch
 from streamlit.testing.v1 import AppTest
 
 
-checkpoint_file = "src/GRU_32_32.pth.tar"
 fake_data = pd.read_csv("src/tests/test.csv")
 zero_calls = 0
 original_zeros = torch.zeros
@@ -22,7 +21,7 @@ def fake_train_model(*args, **kwargs):
     model_name, embedding_dim, hidden_dim = args[1]
     callback = args[-2]
     callback(1, 0.012345, 0.90)
-    file_path = f"src/{model_name}_{embedding_dim}_{hidden_dim}.pth.tar"
+    file_path = f"models/{model_name}_{embedding_dim}_{hidden_dim}.pth.tar"
     with open(file_path, "w") as f:
         f.write("Super cool model weights.")
     return fake_results, 1
@@ -38,13 +37,13 @@ def fake_zeros(*args, **kwargs):
 
 def test_init():
     with patch("app.pd.read_csv", return_value=fake_data):
-        with open("src/test.tar", "w") as f:
+        with open("models/test.tar", "w") as f:
             f.write("Dummy checkpoint file.")
         at = AppTest.from_file("../app.py", default_timeout=60).run()
         assert not at.exception
         for state in ["vocab", "vocab_size", "train_dataset", "val_dataset"]:
             assert state in at.session_state
-        assert not os.path.exists("src/test.tar")
+        assert not os.path.exists("models/test.tar")
 
 
 def test_options_work():
@@ -74,7 +73,7 @@ def test_train_model_works(remove_tar):
     with patch("app.pd.read_csv", return_value=fake_data), patch("train.train_model", side_effect=fake_train_model):
         at = AppTest.from_file("../app.py", default_timeout=60).run()
         at.button("train_model").click().run()
-        assert os.path.exists(checkpoint_file)
+        assert os.path.exists("models/GRU_32_32.pth.tar")
         assert at.success[0].value == "Training complete!\n\nEpochs Trained: 1"
         assert at.session_state.trained_models == set(["GRU, Embedding Dim: 32, Hidden Dim: 32"])
 

@@ -10,7 +10,7 @@ dummy_model_args = ["GRU", 32, 32]
 dummy_lr = 0.01
 dummy_optimizer = torch.optim.Adam(dummy_model.parameters(), lr=dummy_lr)
 dummy_optimizer.step()
-checkpoint_file = "src/GRU_32_32.pth.tar"
+checkpoint_file = "models/GRU_32_32.pth.tar"
 fake_results = {
     "accuracy": torch.tensor(0.9),
     "precision": torch.tensor(0.9),

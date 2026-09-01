@@ -15,7 +15,7 @@ class EarlyStopper:
             self.counter = 0
             self.results = results
             model_name, embedding_dim, hidden_dim = model_args
-            save_checkpoint(f"src/{model_name}_{embedding_dim}_{hidden_dim}.pth.tar", model, optimizer)
+            save_checkpoint(f"models/{model_name}_{embedding_dim}_{hidden_dim}.pth.tar", model, optimizer)
         elif validation_loss > (self.min_validation_loss):
             self.counter += 1
             if self.counter >= self.patience:

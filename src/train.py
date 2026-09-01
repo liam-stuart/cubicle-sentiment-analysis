@@ -25,7 +25,7 @@ def train_model(model: nn.Module, model_args: list, device: str, learning_rate: 
 
     if load_model:
         model_name, embedding_dim, hidden_dim = model_args
-        file_path = f"src/{model_name}_{embedding_dim}_{hidden_dim}.pth.tar"
+        file_path = f"models/{model_name}_{embedding_dim}_{hidden_dim}.pth.tar"
         load_checkpoint(file_path, model, optimizer, learning_rate)
 
     scaler = torch.amp.GradScaler(device=device)

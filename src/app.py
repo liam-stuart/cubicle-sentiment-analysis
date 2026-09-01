@@ -38,9 +38,12 @@ else:
         st.session_state.val_dataset = val_dataset
 
         # Clean up any existing checkpoint files to avoid confusion with new training runs
-        tar_files = glob.glob(os.path.join("src", "*.tar"))
-        for tar_file in tar_files:
-            os.remove(tar_file)
+        if not os.path.exists("models"):
+            os.makedirs("models")
+        else:
+            tar_files = glob.glob(os.path.join("models", "*.tar"))
+            for tar_file in tar_files:
+                os.remove(tar_file)
 
 
 st.title("Cubicle Sentiment Analysis App")
@@ -149,7 +152,7 @@ if st.button("Predict sentiment", key="predict"):
     split_trained_model = re.split(", |: ", trained_model)
     trained_model_name, embed, hidden = split_trained_model[0], split_trained_model[2], split_trained_model[4]
     model = Model(trained_model_name, vocab_size=vocab_size, embedding_dim=int(embed), hidden_dim=int(hidden))
-    load_checkpoint(f"src/{trained_model_name}_{embed}_{hidden}.pth.tar", model)
+    load_checkpoint(f"models/{trained_model_name}_{embed}_{hidden}.pth.tar", model)
     model = model.to(device)
     model.eval()
 

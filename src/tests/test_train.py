@@ -6,7 +6,6 @@ from model import Model
 from train import train_model
 
 
-checkpoint_file = "src/GRU_32_32.pth.tar"
 model = Model("GRU", 100, 32, 32)
 dummy_model_args = ["GRU", 32, 32]
 fake_results = {

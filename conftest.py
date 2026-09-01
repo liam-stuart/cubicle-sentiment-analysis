@@ -11,4 +11,4 @@ sys.path.insert(0, str(src_path))
 @pytest.fixture
 def remove_tar() -> Generator[None, None, None]:
     yield
-    os.remove("src/GRU_32_32.pth.tar")
+    os.remove("models/GRU_32_32.pth.tar")

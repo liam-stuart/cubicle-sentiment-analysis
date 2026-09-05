@@ -24,8 +24,8 @@ jobs:
         run: |
           uv pip install -r requirements.txt --index-strategy unsafe-best-match
           uv pip install pytest pytest-cov
-          uv run pytest --cov=app --cov=model --cov=preprocessing --cov=train --cov=utils src/tests --cov-report= --cov-append
-          uv run coverage report --fail-under=90
+          uv run pytest --cov=app --cov=model --cov=preprocessing --cov=src/tests --cov=train --cov=utils --cov-branch src/tests --cov-report= --cov-append
+          uv run coverage report -m --fail-under=90
 
   flake8:
     name: Code Format

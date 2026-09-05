@@ -9,6 +9,8 @@ dummy_model = Model("GRU", 100, 32, 32)
 dummy_model_args = ["GRU", 32, 32]
 dummy_lr = 0.01
 dummy_optimizer = torch.optim.Adam(dummy_model.parameters(), lr=dummy_lr)
+for param in dummy_model.parameters():
+    param.grad = torch.rand_like(param)
 dummy_optimizer.step()
 checkpoint_file = "models/GRU_32_32.pth.tar"
 fake_results = {
@@ -24,12 +26,14 @@ def test_early_stopper_init():
     early_stopper = EarlyStopper()
     assert early_stopper.patience == 3
     assert early_stopper.counter == 0
+    assert early_stopper.results == {}
     assert early_stopper.min_validation_loss == float('inf')
 
 
 def test_early_stopper_lower_min(remove_tar):
     early_stopper = EarlyStopper()
     early_stopper.min_validation_loss = 10
+    os.makedirs("models")
     assert not early_stopper.early_stop(5, dummy_model, dummy_model_args, dummy_optimizer, fake_results)
     assert os.path.exists(checkpoint_file)
 
@@ -51,11 +55,13 @@ def test_early_stopper_patience_exceeded():
 
 
 def test_save_checkpoint(remove_tar):
+    os.makedirs("models")
     save_checkpoint(checkpoint_file, dummy_model, dummy_optimizer)
     assert os.path.exists(checkpoint_file)
 
 
 def test_load_checkpoint(remove_tar):
+    os.makedirs("models")
     save_checkpoint(checkpoint_file, dummy_model, dummy_optimizer)
     dummy_model_new = Model("GRU", 100, 32, 32)
     for param in dummy_model_new.parameters():
@@ -87,8 +93,4 @@ def test_load_checkpoint(remove_tar):
         for key in state_old:
             val_old = state_old[key]
             val_new = state_new[key]
-
-            if isinstance(val_old, torch.Tensor):
-                assert torch.equal(val_old, val_new)
-            else:
-                assert val_old == val_new
+            assert torch.equal(val_old, val_new)

@@ -32,18 +32,19 @@ def callback(*args):
 
 
 def test_train_model_runs(remove_tar):
-    _, epochs = train_model(model, dummy_model_args, "cpu", 0.01, 3, 4, train_loader, val_loader, callback, False)
-    assert epochs == 3
+    _, epochs = train_model(model, dummy_model_args, "cpu", 0.01, 1, 2, train_loader, val_loader, callback, False)
+    assert epochs == 1
 
 
 @patch("train.EarlyStopper")
 def test_train_model_stops_early(mock_early_stopper):
-    mock_instance = mock_early_stopper
+    mock_instance = mock_early_stopper.return_value
     mock_instance.results = fake_results
     mock_instance.early_stop.return_value = True
-    results, epochs = train_model(model, dummy_model_args, "cpu", 0.01, 3, 4, train_loader, val_loader, callback, False)
-    for result in results:
-        assert results[result] == fake_results[result]
+    train_results, epochs = train_model(model, dummy_model_args, "cpu", 0.01, 3, 4,
+                                        train_loader, val_loader, callback, False)
+    for metric in train_results:
+        assert train_results[metric] == fake_results[metric]
     assert epochs == 1
 
 

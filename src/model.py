@@ -13,6 +13,8 @@ class Model(nn.Module):
             self.recurrent_layer = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
         elif model_name == "RNN":
             self.recurrent_layer = nn.RNN(embedding_dim, hidden_dim, batch_first=True)
+        else:
+            raise ValueError(f"Unsupported model_name: {model_name}")
 
         self.fc = nn.Linear(hidden_dim, 1)
 

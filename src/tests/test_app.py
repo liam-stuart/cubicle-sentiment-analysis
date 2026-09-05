@@ -37,12 +37,18 @@ def fake_zeros(*args, **kwargs):
 
 def test_init():
     with patch("app.pd.read_csv", return_value=fake_data):
-        with open("models/test.tar", "w") as f:
-            f.write("Dummy checkpoint file.")
         at = AppTest.from_file("../app.py", default_timeout=60).run()
         assert not at.exception
         for state in ["vocab", "vocab_size", "train_dataset", "val_dataset"]:
             assert state in at.session_state
+
+
+def test_old_models_deleted():
+    with patch("app.pd.read_csv", return_value=fake_data):
+        with open("models/test.tar", "w") as f:
+            f.write("Dummy checkpoint file.")
+        at = AppTest.from_file("../app.py", default_timeout=60).run()
+        assert not at.exception
         assert not os.path.exists("models/test.tar")
 
 

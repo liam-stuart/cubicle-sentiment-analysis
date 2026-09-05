@@ -1,4 +1,5 @@
 import torch
+import pytest
 import torch.nn as nn
 from model import Model
 
@@ -18,3 +19,8 @@ def test_models_work():
         with torch.no_grad():
             output = model(test_data)
         assert output.shape == torch.Size([50, 1])
+
+
+def test_invalid_model_name():
+    with pytest.raises(ValueError):
+        Model("XGBoost", 11, 32, 32)

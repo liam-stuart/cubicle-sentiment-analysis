@@ -15,7 +15,7 @@ The project already comes with an `output.csv` file which contains over 20,000 p
 ```python
 scrapy crawl cubicle_scraper -O output.csv
 ```
-Details on how to edit specific properties of the scraper can be found in comments in `web_scraper/spiders/cubicle_scraper.py`. It should also be noted that the settings on the scraper have been kept quite conservative to avoid overloading the Cubicle webpages, so the default scraper will take a while to fully run. The scraper settings can be adjusted in `web_scraper/settings.py`, but be aware that making too many requests within a short period will likely lead to the scraper being blocked.
+Details on how to edit specific properties of the scraper can be found in comments in `web_scraper/spiders/cubicle_scraper.py`. It should also be noted that the settings on the scraper have been kept quite conservative, so the default scraper will take a while to fully run. The scraper settings can be adjusted in `web_scraper/settings.py`, but be aware that making too many requests within a short period will likely lead to the scraper being blocked.
 
 If the scraper has been running for a while, pressing <kbd>CTRL</kbd> + <kbd>C</kbd> will halt the scraper but retain all reviews gathered during its execution.
 
